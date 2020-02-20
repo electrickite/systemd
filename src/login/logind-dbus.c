@@ -886,6 +886,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 goto fail;
 
         session->type = t;
+        session->original_type = t;
         session->class = c;
         session->remote = remote;
         session->vtnr = vtnr;

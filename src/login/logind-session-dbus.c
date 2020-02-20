@@ -351,7 +351,9 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         Session *s = userdata;
+        const char *type;
         int r, force;
+        SessionType t;
         uid_t uid;
 
         assert(message);
@@ -360,6 +362,20 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         r = sd_bus_message_read(message, "b", &force);
         if (r < 0)
                 return r;
+
+        r = sd_bus_message_read(message, "s", &type);
+        if (r < 0)
+                /* This effectively makes the type argument optional */
+                type = NULL;
+
+        if (isempty(type))
+                t = s->type;
+        else {
+                t = session_type_from_string(type);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid session type %s", type);
+        }
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -375,6 +391,8 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         r = session_set_controller(s, sd_bus_message_get_sender(message), force, true);
         if (r < 0)
                 return r;
+
+        session_set_type(s, t);
 
         return sd_bus_reply_method_return(message, NULL);
 }
